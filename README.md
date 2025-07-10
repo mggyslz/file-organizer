@@ -1,5 +1,5 @@
 
-# **📂 File Organizer Application**
+# **File Organizer Application**
 
 File Organizer is a powerful cross-platform GUI application designed to help users automatically organize their files into categorized folders. With a user-friendly interface and advanced features, it simplifies file management by:
 
@@ -13,18 +13,15 @@ Built with Python and CustomTkinter, the app provides a modern UI and leverages 
 
 ---
 
-## 📸 **Screenshots**
-
-> _Add your actual screenshots inside `assets/screenshots/` and replace the placeholders below._
-
-![Main UI](assets/screenshots/main_ui.png)  
+## **Screenshots**
+![Main UI](assets/main_ui.png)  
 *Main interface*
 
 ---
 
-## ✨ **Features**
+## **Features**
 
-### 🧰 Core Functionality
+### Core Functionality
 
 - **Automatic Organization**: Sort files into categories based on file extensions  
 - **Custom Categories**: Define your own file type categories and extensions  
@@ -32,7 +29,7 @@ Built with Python and CustomTkinter, the app provides a modern UI and leverages 
 - **Size Filtering**: Process only files within specific size ranges  
 - **Manual Assignments**: Override automatic categorization for specific files  
 
-### ⚙️ Advanced Features
+###  Advanced Features
 
 - **Duplicate Detection**: Find and manage duplicate files using content-based comparison  
 - **Undo Operations**: Revert recent file organization actions  
@@ -40,7 +37,7 @@ Built with Python and CustomTkinter, the app provides a modern UI and leverages 
 - **Multi-threaded Processing**: Efficiently handle large folders without freezing  
 - **Secure Deletion**: Securely delete duplicate or unwanted files  
 
-### 🖥️ User Interface
+###  User Interface
 
 - **Modern Dark Theme**: Sleek and intuitive interface  
 - **Preview Mode**: Visualize organization changes before applying  
@@ -49,14 +46,14 @@ Built with Python and CustomTkinter, the app provides a modern UI and leverages 
 
 ---
 
-## 🔧 **Installation**
+## **Installation**
 
-### 📌 Prerequisites
+### Prerequisites
 
 - Python 3.8 or higher  
 - `pip` package manager  
 
-### 🧪 Step-by-Step Setup
+### Step-by-Step Setup
 
 ```bash
 # 1. Clone the repository
@@ -79,7 +76,7 @@ python core/main.py
 
 ---
 
-## 💻 **Build as Executable (Windows)**
+## **Build as Executable (Windows)**
 
 For end-users, a `.bat` file is already included to simplify the build process.
 
@@ -109,7 +106,7 @@ pause
 
 ---
 
-## 🚀 **Usage**
+## **Usage**
 
 ### Basic Steps
 
@@ -130,7 +127,7 @@ pause
 
 ---
 
-## ⚙️ **Configuration**
+## **Configuration**
 
 All settings are stored in `file_organizer_config.json`.  
 
@@ -141,7 +138,7 @@ You can:
 
 ---
 
-## 🗂️ **Project Structure**
+## **Project Structure**
 
 ```
 file-organizer/
@@ -163,7 +160,7 @@ file-organizer/
 
 ---
 
-## 📦 **Dependencies**
+##  **Dependencies**
 
 - `customtkinter` – modern UI widgets  
 - `Pillow` – image handling  
@@ -171,7 +168,7 @@ file-organizer/
 
 ---
 
-## ❗ **Troubleshooting**
+## **Troubleshooting**
 
 ### Common Problems & Fixes
 
@@ -190,7 +187,7 @@ file-organizer/
 
 ---
 
-## 🤝 **Contributing**
+## **Contributing**
 
 We welcome pull requests!  
 Here’s how you can help:
@@ -209,11 +206,11 @@ git push origin feature/your-feature
 
 ---
 
-## 📢 **Note**
+##  **Note**
 
 > This application is actively maintained.  
 > Expect regular updates, bug fixes, and new features!
 
 ---
 
-**MIT License** | Made with ❤️ by [YourName]
+**MIT License** | Made with ❤️ by [mggylsz]
