@@ -213,4 +213,4 @@ git push origin feature/your-feature
 
 ---
 
-**MIT License** | Made with ❤️ by [mggylsz]
+**MIT License** | Made by [mggylsz]
