@@ -142,20 +142,25 @@ You can:
 
 ```
 file-organizer/
-├── assets/                      # Icons and images
-│   └── screenshots/             # App screenshots
-├── core/
-│   ├── file_operations.py       # Core file handling logic
-│   └── config_manager.py        # Settings and config
-├── features/
-│   ├── smart_features.py        # AI & smart logic
-│   └── security_performance.py  # Secure deletes & performance
-├── ui/
-│   ├── ui_components.py         # UI layout
-│   └── ui_enhancements.py       # Extra UI tools
-├── main.py                      # App entry point
-├── build.bat                    # Windows build script
-└── requirements.txt             # Python dependencies
+├── assets/ # Icons, logo, and screenshots
+│
+├── config/ # App configuration logic
+│ └── config_manager.py # Loads and saves user settings
+│
+├── core/ # Core app logic
+│ ├── file_operations.py # File handling and organization
+│ └── main.py # Main application entry point
+│
+├── features/ # Smart/advanced functionality
+│ ├── smart_features.py # AI logic (e.g. smart categorization)
+│ └── security_performance.py # Secure delete, performance tools
+│
+├── ui/ # GUI layout and styling
+│ ├── ui_components.py # Core UI components
+│ └── ui_enhancements.py # added UI enchancements
+│
+├── build.bat # Windows build script (PyInstaller)
+└── requirements.txt # Python dependencies
 ```
 
 ---
