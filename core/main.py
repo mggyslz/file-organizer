@@ -1326,65 +1326,76 @@ File Size Distribution:
                                     file_types: Dict[str, List[str]], custom_tags: str,
                                     manual_assignments: Dict[str, str], save_callback: Callable,
                                     category_var: ctk.StringVar) -> ctk.CTkOptionMenu:
-        """Create multi-select assignment interface with folder categories"""
+        """Create multi-select assignment interface with folder categories and search"""
         current_folder = self.folder_var.get()
 
         def get_available_categories():
-            """Get all available categories including subfolders"""
-            # Get predefined categories from file types
             categories = list(file_types.keys())
-        
-            # Add custom tags
             categories.extend([tag.strip() for tag in custom_tags.split(",") if tag.strip()])
-        
-            # Add existing subfolders as categories
             try:
                 subfolders = [f for f in os.listdir(current_folder) 
                             if os.path.isdir(os.path.join(current_folder, f))]
                 categories.extend(subfolders)
             except Exception:
                 pass
-            
-            # Add "None" option
             categories.append("None")
-        
-            return sorted(list(set(categories)))  # Remove duplicates and sort
+            return sorted(list(set(categories)))
 
         # Files listbox with multi-select (using CTkScrollableFrame)
         files_frame = ctk.CTkFrame(parent)
         files_frame.pack(fill="both", expand=True, pady=(0, 10))
+
+        # Search Bar
+        search_frame = ctk.CTkFrame(files_frame)
+        search_frame.pack(fill="x", pady=(0, 5))
+
+        search_var = ctk.StringVar()
+        search_entry = ctk.CTkEntry(search_frame, textvariable=search_var, placeholder_text="Search files...")
+        search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        # Automatically search on every keystroke
+        search_var.trace_add("write", lambda *args: search_files())
+
 
         scroll_frame = ctk.CTkScrollableFrame(files_frame)
         scroll_frame.pack(fill="both", expand=True)
 
         # Create checkboxes for each file
         file_checkboxes = {}
-        for file in files:
+        file_frames = {}
+
+        def create_file_entry(file):
             current_assignment = manual_assignments.get(file, "None")
             frame = ctk.CTkFrame(scroll_frame)
             frame.pack(fill="x", pady=2)
-
             var = ctk.IntVar(value=0)
             cb = ctk.CTkCheckBox(frame, text="", variable=var)
             cb.pack(side="left", padx=(0, 10))
-
             label = ctk.CTkLabel(frame, text=f"{file} → {current_assignment}", anchor="w")
             label.pack(side="left", fill="x", expand=True)
-
             file_checkboxes[file] = (var, label)
+            file_frames[file] = frame
+
+        for file in files:
+            create_file_entry(file)
+
+        def search_files():
+            keyword = search_var.get().lower()
+            for file, frame in file_frames.items():
+                if keyword in file.lower():
+                    frame.pack(fill="x", pady=2)
+                else:
+                    frame.pack_forget()
+
 
         # Category assignment frame
         assign_frame = ctk.CTkFrame(parent)
         assign_frame.pack(fill="x")
 
-        # Create category list including subfolders
         categories = get_available_categories()
 
-        # Category selection
         ctk.CTkLabel(assign_frame, text="Select Category:").pack(anchor="w")
-
-        category_combo = ctk.CTkOptionMenu(assign_frame, variable=category_var, 
-                                values=categories)
+        category_combo = ctk.CTkOptionMenu(assign_frame, variable=category_var, values=categories)
         category_combo.pack(anchor="w", pady=(5, 10))
 
         def assign_to_selected():
@@ -1407,23 +1418,18 @@ File Size Distribution:
                     manual_assignments[file] = category
                 assigned_files.append(file)
 
-                # Update display
                 current_assignment = manual_assignments.get(file, "None")
                 file_checkboxes[file][1].configure(text=f"{file} → {current_assignment}")
 
-            # Auto-save when assigning to a new folder
             if category != "None" and category not in file_types.keys() and \
             category not in [tag.strip() for tag in custom_tags.split(",") if tag.strip()]:
                 save_callback(manual_assignments)
 
-            messagebox.showinfo("Success", 
-                        f"Assigned {len(assigned_files)} files to '{category}'")
+            messagebox.showinfo("Success", f"Assigned {len(assigned_files)} files to '{category}'")
 
-        # Assign button
         ctk.CTkButton(assign_frame, text="✅ Assign to Selected Files", 
                 command=assign_to_selected).pack(anchor="w", pady=(0, 5))
 
-        # Selection info
         def update_selection_info():
             selected_count = sum(var.get() for var, _ in file_checkboxes.values())
             selection_info.set(f"Selected: {selected_count} files")
@@ -1435,7 +1441,6 @@ File Size Distribution:
         for var, _ in file_checkboxes.values():
             var.trace_add("write", lambda *args: update_selection_info())
 
-        # Filter buttons
         filter_frame = ctk.CTkFrame(assign_frame)
         filter_frame.pack(fill="x", pady=(10, 0))
 
@@ -1461,7 +1466,8 @@ File Size Distribution:
         ctk.CTkButton(filter_frame, text="❌ Clear Selection", 
                 command=clear_selection).pack(side="left")
 
-        return category_combo  # Return the combo box for external access
+        return category_combo
+
     
     def run(self):
         """Start the application"""
