@@ -156,8 +156,8 @@ file-organizer/
 │ └── security_performance.py # Secure delete, performance tools
 │
 ├── ui/ # GUI layout and styling
-│ ├── ui_components.py # Core UI components
-│ └── ui_enhancements.py # added UI enchancements
+│ ├── main_windows.py # Core UI components
+│ 
 │
 ├── build.bat # Windows build script (PyInstaller)
 └── requirements.txt # Python dependencies
