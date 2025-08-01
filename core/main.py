@@ -387,7 +387,5 @@ def main():
 if __name__ == "__main__":
     main()
     
-    # dynamic naming
     #  date folder
-    # undo sometimes does error (occured 1 time)
     

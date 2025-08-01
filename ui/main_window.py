@@ -110,7 +110,7 @@ class MainWindow:
             ("Statistics", self.app.get_folder_statistics, "statistics"),
             ("File Types", self.app.open_file_types_editor, "file"),
             ("Find Duplicates", self.app.find_duplicates, "duplicates"),
-            ("Undo Last", self.app.undo_last_operation, "undo")
+            ("Undo", self.app.undo_last_operation, "undo")
         ]
         
         for text, command, icon_name in sidebar_buttons:
@@ -776,11 +776,11 @@ File Size Distribution:
         content_frame.pack(fill="both", expand=True, pady=(0, 15))
         
         # Left panel - File list (70%)
-        left_panel = ctk.CTkFrame(content_frame, corner_radius=12)
+        left_panel = ctk.CTkFrame(content_frame, corner_radius=12, border_width=1, border_color=("#DDDDDD", "#444444"))
         left_panel.pack(side="left", fill="both", expand=True, padx=(0, 12))
         
         # Right panel - Controls (30%)
-        right_panel = ctk.CTkFrame(content_frame, corner_radius=12, width=280)
+        right_panel = ctk.CTkFrame(content_frame, corner_radius=12, width=280, border_width=1, border_color=("#DDDDDD", "#444444"))
         right_panel.pack(side="right", fill="y")
         right_panel.pack_propagate(False)
         
@@ -886,7 +886,7 @@ File Size Distribution:
                     font=ctk.CTkFont(size=14, weight="bold")).pack()
         
         # Category assignment section
-        category_section = ctk.CTkFrame(right_panel, corner_radius=8)
+        category_section = ctk.CTkFrame(right_panel, corner_radius=8, border_width=1, border_color=("#DDDDDD", "#444444"))
         category_section.pack(fill="x", padx=15, pady=(0, 15))
         
         # Section content
@@ -913,7 +913,7 @@ File Size Distribution:
         assign_btn.pack(fill="x")
         
         # Selection controls
-        selection_section = ctk.CTkFrame(right_panel, corner_radius=8)
+        selection_section = ctk.CTkFrame(right_panel, corner_radius=8, border_width=1, border_color=("#DDDDDD", "#444444"))
         selection_section.pack(fill="x", padx=15, pady=(0, 15))
         
         sel_content = ctk.CTkFrame(selection_section, fg_color="transparent")
@@ -935,7 +935,7 @@ File Size Distribution:
                     width=70, height=28).pack(side="right")
         
         # Folder management
-        folder_section = ctk.CTkFrame(right_panel, corner_radius=8)
+        folder_section = ctk.CTkFrame(right_panel, corner_radius=8, border_width=1, border_color=("#DDDDDD", "#444444"))
         folder_section.pack(fill="x", padx=15, pady=(0, 15))
         
         folder_content = ctk.CTkFrame(folder_section, fg_color="transparent")
@@ -1093,7 +1093,7 @@ File Size Distribution:
 
     def _create_bottom_actions(self, parent, window, manual_assignments, save_callback):
         """Create modern bottom action bar"""
-        action_bar = ctk.CTkFrame(parent, corner_radius=8)
+        action_bar = ctk.CTkFrame(parent, corner_radius=8, border_width=1, border_color=("#DDDDDD", "#444444"))
         action_bar.pack(fill="x", pady=(15, 0))
         
         btn_content = ctk.CTkFrame(action_bar, fg_color="transparent")
