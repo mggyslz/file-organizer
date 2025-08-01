@@ -363,7 +363,7 @@ class FileOrganizer:
             pass
         finally:
             self.save_settings()
-    
+            
     def on_closing(self):
         """Handle application closing"""
         if self.operation_in_progress:
