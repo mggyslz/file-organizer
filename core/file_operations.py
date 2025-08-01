@@ -1,5 +1,7 @@
 import os
 import shutil
+import stat
+import time
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Callable
 import threading
@@ -311,9 +313,10 @@ class FileOperations:
     def undo_operations(self, operations: List[Tuple], 
                     status_callback: Callable = None) -> Tuple[int, List[str]]:
         """
-        Undo file operations and remove empty folders
+        Undo file operations and remove empty folders with robust error handling
         Returns: (undone_count, errors)
         """
+        
         undone = 0
         errors = []
         folders_to_check = set()  # Track folders that might become empty
@@ -342,28 +345,194 @@ class FileOperations:
             except Exception as e:
                 errors.append(f"{os.path.basename(destination)}: {str(e)}")
         
-        # Second pass: remove empty folders
+        # Second pass: remove empty folders with robust handling
         removed_folders = []
-        for folder in folders_to_check:
+        
+        def force_remove_folder(folder_path):
+            """Force remove folder even if it contains read-only files"""
+            def handle_remove_readonly(func, path, exc):
+                """Error handler for removing read-only files"""
+                if os.path.exists(path):
+                    # Try to make the file writable and remove it
+                    try:
+                        os.chmod(path, stat.S_IWRITE)
+                        func(path)
+                    except Exception:
+                        pass  # If it still fails, just continue
+            
             try:
+                # First try normal removal
+                if os.path.exists(folder_path) and not os.listdir(folder_path):
+                    os.rmdir(folder_path)
+                    return True
+            except OSError:
+                pass
+            
+            try:
+                # If normal removal fails, try force removal
+                if os.path.exists(folder_path):
+                    # Check if folder is actually empty (including hidden files)
+                    all_items = []
+                    try:
+                        all_items = os.listdir(folder_path)
+                    except Exception:
+                        pass
+                    
+                    if not all_items:  # Folder is truly empty
+                        # Try to remove with force handling
+                        shutil.rmtree(folder_path, onerror=handle_remove_readonly)
+                        return True
+                    else:
+                        # Folder is not empty, don't remove
+                        return False
+            except Exception:
+                pass
+            
+            return False
+        
+        def is_folder_truly_empty(folder_path):
+            """Check if folder is truly empty, including hidden files"""
+            try:
+                items = os.listdir(folder_path)
+                return len(items) == 0
+            except Exception:
+                return False
+        
+        # Sort folders by depth (deepest first) for proper removal order
+        sorted_folders = sorted(folders_to_check, key=lambda x: x.count(os.sep), reverse=True)
+        
+        for folder in sorted_folders:
+            if self._cancel_flag:
+                break
+                
+            try:
+                if status_callback:
+                    status_callback(f"Checking folder: {os.path.basename(folder)}")
+                
                 # Walk up the directory tree to check for empty folders
                 current_folder = folder
-                while current_folder and os.path.exists(current_folder):
-                    # Skip if folder is not empty
-                    if os.listdir(current_folder):
+                max_attempts = 10  # Prevent infinite loops
+                attempts = 0
+                
+                while current_folder and os.path.exists(current_folder) and attempts < max_attempts:
+                    attempts += 1
+                    
+                    # Skip if this is the root folder being organized
+                    parent_of_current = os.path.dirname(current_folder)
+                    if parent_of_current == current_folder:  # Reached root
                         break
                     
-                    # Remove empty folder
-                    os.rmdir(current_folder)
-                    removed_folders.append(current_folder)
+                    # Check if folder is empty
+                    if not is_folder_truly_empty(current_folder):
+                        break
+                    
+                    # Try to remove the empty folder
+                    if force_remove_folder(current_folder):
+                        removed_folders.append(current_folder)
+                        if status_callback:
+                            status_callback(f"Removed empty folder: {os.path.basename(current_folder)}")
+                    else:
+                        # If we can't remove this folder, don't try parent folders
+                        break
                     
                     # Move up to parent directory
-                    current_folder = os.path.dirname(current_folder)
+                    current_folder = parent_of_current
+                    
+                    # Small delay to allow Windows to release folder locks
+                    time.sleep(0.1)
                     
             except Exception as e:
-                errors.append(f"Error removing folder {folder}: {str(e)}")
+                error_msg = f"Error removing folder {os.path.basename(folder)}: {str(e)}"
+                errors.append(error_msg)
+                # Continue with other folders even if one fails
+                continue
         
         return undone, errors, removed_folders
+
+    def cleanup_empty_folders(self, folder: str, status_callback: Callable = None) -> Tuple[int, List[str]]:
+        """
+        Clean up empty folders that might have been left behind
+        Returns: (removed_count, errors)
+        """
+        import stat
+        import time
+        
+        removed_count = 0
+        errors = []
+        
+        def force_remove_folder(folder_path):
+            """Force remove folder even if it contains read-only files"""
+            def handle_remove_readonly(func, path, exc):
+                """Error handler for removing read-only files"""
+                if os.path.exists(path):
+                    try:
+                        os.chmod(path, stat.S_IWRITE)
+                        func(path)
+                    except Exception:
+                        pass
+            
+            try:
+                if os.path.exists(folder_path) and not os.listdir(folder_path):
+                    os.rmdir(folder_path)
+                    return True
+            except OSError:
+                pass
+            
+            try:
+                if os.path.exists(folder_path):
+                    all_items = []
+                    try:
+                        all_items = os.listdir(folder_path)
+                    except Exception:
+                        pass
+                    
+                    if not all_items:
+                        shutil.rmtree(folder_path, onerror=handle_remove_readonly)
+                        return True
+            except Exception:
+                pass
+            
+            return False
+        
+        try:
+            # Find all subdirectories
+            all_dirs = []
+            for root, dirs, files in os.walk(folder):
+                for d in dirs:
+                    dir_path = os.path.join(root, d)
+                    all_dirs.append(dir_path)
+            
+            # Sort by depth (deepest first)
+            all_dirs.sort(key=lambda x: x.count(os.sep), reverse=True)
+            
+            # Try to remove empty directories
+            for dir_path in all_dirs:
+                if self._cancel_flag:
+                    break
+                    
+                try:
+                    if status_callback:
+                        status_callback(f"Checking: {os.path.basename(dir_path)}")
+                    
+                    # Check if directory is empty
+                    if os.path.exists(dir_path):
+                        items = os.listdir(dir_path)
+                        if not items:  # Empty directory
+                            if force_remove_folder(dir_path):
+                                removed_count += 1
+                                if status_callback:
+                                    status_callback(f"Removed: {os.path.basename(dir_path)}")
+                            
+                            # Small delay for Windows
+                            time.sleep(0.05)
+                            
+                except Exception as e:
+                    errors.append(f"Error with {os.path.basename(dir_path)}: {str(e)}")
+                    
+        except Exception as e:
+            errors.append(f"Error scanning directories: {str(e)}")
+        
+        return removed_count, errors
     
     def check_folder_permissions(self, folder: str) -> bool:
         """Check if folder has write permissions"""
