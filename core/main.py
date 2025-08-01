@@ -217,7 +217,7 @@ class FileOrganizer:
         self.main_window.set_status("Organization complete!")
     
     def undo_last_operation(self):
-        """Undo the last file organization operation"""
+        """Undo the last file organization operation including folder removal"""
         if self.operation_in_progress:
             messagebox.showwarning("Warning", "Please wait for current operation to complete.")
             return
@@ -226,7 +226,7 @@ class FileOrganizer:
             messagebox.showinfo("Undo", "No operations to undo.")
             return
         
-        if not messagebox.askyesno("Confirm Undo", "Are you sure you want to undo the last operation?"):
+        if not messagebox.askyesno("Confirm Undo", "Are you sure you want to undo the last operation? This will remove any empty folders created during organization."):
             return
         
         try:
@@ -240,15 +240,17 @@ class FileOrganizer:
                     self.main_window.set_status("Error occurred during undo")
                     return
                 
-                undone, errors = result
+                undone, errors, removed_folders = result
                 self.undo_operations = []
                 
-                message = f"Undo complete!\n\nOperations undone: {undone}"
+                message = f"Undo complete!\n\nFiles restored: {undone}"
+                if removed_folders:
+                    message += f"\nRemoved {len(removed_folders)} empty folders"
                 if errors:
                     message += f"\nErrors encountered: {len(errors)}"
-                    message += "\n\nErrors:\n" + "\n".join(errors[:5])
-                    if len(errors) > 5:
-                        message += f"\n... and {len(errors) - 5} more errors"
+                    message += "\n\nFirst few errors:\n" + "\n".join(errors[:3])
+                    if len(errors) > 3:
+                        message += f"\n... and {len(errors) - 3} more errors"
                 
                 messagebox.showinfo("Undo Complete", message)
                 self.main_window.set_status("Undo operation complete!")
@@ -384,3 +386,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    # dynamic naming
+    #  date folder```

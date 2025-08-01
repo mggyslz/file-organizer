@@ -6,6 +6,7 @@ import customtkinter as ctk
 from typing import Dict, List, Callable
 from PIL import Image
 from datetime import datetime
+import shutil
 
 class MainWindow:
     """Main UI window for File Organizer application"""
@@ -479,7 +480,7 @@ File Size Distribution:
         ctk.CTkButton(button_frame, text="Close", command=preview_window.destroy).pack()
     
     def show_duplicates(self, duplicates: Dict, folder: str, security_perf=None):
-        """Show duplicates management window"""
+        """Show duplicates management window without tabs, pre-checking duplicates"""
         dup_window = ctk.CTkToplevel(self.root)
         dup_window.title("Duplicate Files")
         dup_window.geometry("900x650")
@@ -493,60 +494,44 @@ File Size Distribution:
                     font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(0, 5))
         
         instructions = ("✓ Check files you want to delete (keep at least one per set)\n"
-                       "ⓘ Files grouped below are 100% identical in content")
+                    "ⓘ Files grouped below are 100% identical in content")
         ctk.CTkLabel(main_frame, text=instructions, font=ctk.CTkFont(size=11),
                     text_color="gray70").pack(pady=(0, 15))
         
-        # Create notebook for different groups
-        notebook = ctk.CTkTabview(main_frame)
-        notebook.pack(fill="both", expand=True, pady=(0, 10))
+        # Create scrollable area for all duplicates
+        scroll_frame = ctk.CTkScrollableFrame(main_frame)
+        scroll_frame.pack(fill="both", expand=True, pady=(0, 10))
         
         file_checkboxes = {}
         
-        # Create tabs for each duplicate group
+        # Create sections for each duplicate group
         for group_idx, (hash_val, files) in enumerate(duplicates.items()):
-            tab = notebook.add(f"Set {group_idx + 1}")
-            scroll_frame = ctk.CTkScrollableFrame(tab)
-            scroll_frame.pack(fill="both", expand=True)
-            
-            # Header with toggle all button
+            # Group header
             header_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-            header_frame.pack(fill="x", pady=(0, 5))
+            header_frame.pack(fill="x", pady=(15, 5))
             
             ctk.CTkLabel(header_frame, 
                         text=f"Duplicate Set {group_idx + 1} ({len(files)} files):",
                         font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             
-            def create_toggle_func(group_files):
-                def toggle_all():
-                    any_unchecked = any(not file_checkboxes[file][0].get() for file in group_files)
-                    for file in group_files:
-                        file_checkboxes[file][0].set(1 if any_unchecked else 0)
-                return toggle_all
-            
-            toggle_btn = ctk.CTkButton(header_frame, text="Toggle All",
-                                     command=create_toggle_func(files),
-                                     width=80, height=25, font=ctk.CTkFont(size=10))
-            toggle_btn.pack(side="right", padx=(10, 0))
-            
             # Create checkboxes for each file
-            for file in files:
+            for i, file in enumerate(files):
                 file_frame = ctk.CTkFrame(scroll_frame)
                 file_frame.pack(fill="x", pady=2)
                 
-                filename = os.path.basename(file)
-                cb_var = ctk.IntVar(value=0)
-                cb = ctk.CTkCheckBox(file_frame, text=filename, variable=cb_var)
+                # Pre-check all except the first file in each group
+                cb_var = ctk.IntVar(value=1 if i > 0 else 0)
+                cb = ctk.CTkCheckBox(file_frame, text=os.path.basename(file), variable=cb_var)
                 cb.pack(side="left", padx=(0, 10))
                 
                 # Show file info
-                self._add_file_info(file_frame, os.path.join(folder, file))
+                self._add_file_info(file_frame, file)
                 file_checkboxes[file] = (cb_var, file_frame)
         
         # Action buttons
         self._create_duplicate_action_buttons(main_frame, dup_window, duplicates, 
                                             file_checkboxes, folder, security_perf)
-    
+        
     def _add_file_info(self, parent, file_path):
         """Add file information labels"""
         try:
@@ -757,87 +742,113 @@ File Size Distribution:
         textbox.bind('<Double-1>', lambda e: load_selection())
     
     def show_manual_assignment(self, files: List[str], file_types: Dict[str, List[str]],
-                                custom_tags: str, manual_assignments: Dict[str, str],
-                                save_callback: Callable, folder: str):
-            """Show manual assignment window"""
-            win = ctk.CTkToplevel(self.root)
-            win.title("Manual File Assignment")
-            win.geometry("860x680")
-            self._bring_to_front(win)
+                            custom_tags: str, manual_assignments: Dict[str, str],
+                            save_callback: Callable, folder: str):
+        """Show manual assignment window with improved UI layout"""
+        win = ctk.CTkToplevel(self.root)
+        win.title("Manual File Assignment")
+        win.geometry("1000x700")  # Slightly larger for better spacing
+        self._bring_to_front(win)
 
-            main_frame = ctk.CTkFrame(win, corner_radius=0)
-            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        main_frame = ctk.CTkFrame(win, corner_radius=0)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-            # Title and instructions
-            ctk.CTkLabel(main_frame, text="Manual File Assignment", 
-                        font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(0, 5))
+        # Title and instructions
+        ctk.CTkLabel(main_frame, text="Manual File Assignment", 
+                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(0, 5))
 
-            info_text = ("Select files and assign categories. Use Ctrl+Click for multiple selection.\n"
-                        "You can assign categories to multiple files at once.")
-            ctk.CTkLabel(main_frame, text=info_text, 
-                        font=ctk.CTkFont(size=10, slant="italic")).pack(pady=(0, 15))
+        info_text = ("Select files and assign categories. Use Ctrl+Click for multiple selection.\n"
+                    "You can assign categories to multiple files at once.")
+        ctk.CTkLabel(main_frame, text=info_text, 
+                    font=ctk.CTkFont(size=11, slant="italic")).pack(pady=(0, 15))
 
-            # Create interface
-            self._create_manual_assignment_interface(main_frame, files, file_types, 
-                                                custom_tags, manual_assignments, 
-                                                save_callback, folder, win)
-    
+        # Create interface
+        self._create_manual_assignment_interface(main_frame, files, file_types, 
+                                            custom_tags, manual_assignments, 
+                                            save_callback, folder, win)
+
     def _create_manual_assignment_interface(self, parent, files, file_types, custom_tags, 
-                                          manual_assignments, save_callback, folder, window):
-        """Create the manual assignment interface"""
-        # Main content with tabs
-        notebook = ctk.CTkTabview(parent)
-        notebook.pack(fill="both", expand=True, pady=(0, 10))
+                                        manual_assignments, save_callback, folder, window):
+        """Create the manual assignment interface with improved layout"""
+        # Main content frame with two columns
+        main_content = ctk.CTkFrame(parent)
+        main_content.pack(fill="both", expand=True, pady=(0, 10))
         
-        multi_frame = notebook.add("File Assignment")
+        # Left column (70%) - File list
+        left_frame = ctk.CTkFrame(main_content, width=0.7)  # 70% width
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
         
-        # Get available categories
+        # Right column (30%) - Category controls
+        right_frame = ctk.CTkFrame(main_content, width=0.3)  # 30% width
+        right_frame.pack(side="right", fill="both", expand=True)
+        
+        # Get available categories including folders
         def get_categories():
             categories = list(file_types.keys())
             categories.extend([tag.strip() for tag in custom_tags.split(",") if tag.strip()])
             try:
                 subfolders = [f for f in os.listdir(folder) 
-                            if os.path.isdir(os.path.join(folder, f))]
+                            if os.path.isdir(os.path.join(folder, f)) and not f.startswith('.')]
                 categories.extend(subfolders)
             except Exception:
                 pass
             categories.append("None")
             return sorted(list(set(categories)))
         
-        # Files list with search
-        files_frame = ctk.CTkFrame(multi_frame)
-        files_frame.pack(fill="both", expand=True, pady=(0, 10))
-        
+        # ===== LEFT COLUMN: File List =====
         # Search bar
-        search_frame = ctk.CTkFrame(files_frame)
+        search_frame = ctk.CTkFrame(left_frame)
         search_frame.pack(fill="x", pady=(0, 5))
         
         search_var = ctk.StringVar()
         search_entry = ctk.CTkEntry(search_frame, textvariable=search_var, 
-                                   placeholder_text="Search files...")
+                                placeholder_text="🔍 Search files...")
         search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
         
-        # Scrollable file list
-        scroll_frame = ctk.CTkScrollableFrame(files_frame)
+        # Selected files counter
+        selected_counter = ctk.CTkLabel(search_frame, text="0 selected", 
+                                    font=ctk.CTkFont(size=10))
+        selected_counter.pack(side="right")
+        
+        # Scrollable file list with zebra striping
+        scroll_frame = ctk.CTkScrollableFrame(left_frame)
         scroll_frame.pack(fill="both", expand=True)
         
-        # Create file checkboxes
+        # Create file checkboxes with compact layout
         file_checkboxes = {}
         file_frames = {}
         
-        for file in files:
+        for i, file in enumerate(files):
             current_assignment = manual_assignments.get(file, "None")
-            frame = ctk.CTkFrame(scroll_frame)
-            frame.pack(fill="x", pady=2)
             
+            # Use frame for each file row with alternating colors
+            frame = ctk.CTkFrame(scroll_frame, height=28)  # Compact height
+            frame.pack(fill="x", pady=0)
+            
+            # Alternate background colors
+            bg_color = "#2B2B2B" if i % 2 == 0 else "#333333"
+            frame.configure(fg_color=bg_color)
+            
+            # Checkbox
             var = ctk.IntVar(value=0)
-            cb = ctk.CTkCheckBox(frame, text="", variable=var)
-            cb.pack(side="left", padx=(0, 10))
+            cb = ctk.CTkCheckBox(frame, text="", variable=var, width=20)
+            cb.pack(side="left", padx=(5, 10))
             
-            label = ctk.CTkLabel(frame, text=f"{file} → {current_assignment}", anchor="w")
-            label.pack(side="left", fill="x", expand=True)
+            # File name and assignment (two lines)
+            text_frame = ctk.CTkFrame(frame, fg_color="transparent")
+            text_frame.pack(side="left", fill="x", expand=True)
             
-            file_checkboxes[file] = (var, label)
+            name_label = ctk.CTkLabel(text_frame, text=file, anchor="w")
+            name_label.pack(fill="x")
+            
+            assign_label = ctk.CTkLabel(text_frame, 
+                                    text=f"Category: {current_assignment}", 
+                                    anchor="w",
+                                    font=ctk.CTkFont(size=10),
+                                    text_color="#AAAAAA")
+            assign_label.pack(fill="x")
+            
+            file_checkboxes[file] = (var, assign_label)
             file_frames[file] = frame
         
         # Search functionality
@@ -845,111 +856,246 @@ File Size Distribution:
             keyword = search_var.get().lower()
             for file, frame in file_frames.items():
                 if keyword in file.lower():
-                    frame.pack(fill="x", pady=2)
+                    frame.pack(fill="x", pady=0)
                 else:
                     frame.pack_forget()
         
         search_var.trace_add("write", lambda *args: search_files())
         
-        # Assignment controls
-        assign_frame = ctk.CTkFrame(multi_frame)
-        assign_frame.pack(fill="x")
+        # ===== RIGHT COLUMN: Category Controls =====
+        # Category assignment panel (card-like appearance)
+        panel = ctk.CTkFrame(right_frame, border_width=1, border_color="#444")
+        panel.pack(fill="both", expand=True, pady=(0, 10))
         
+        # Panel title
+        ctk.CTkLabel(panel, text="Category Actions", 
+                    font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(5, 10))
+        
+        # Category selection
         category_var = ctk.StringVar(value="None")
         categories = get_categories()
         
-        ctk.CTkLabel(assign_frame, text="Select Category:").pack(anchor="w")
-        category_combo = ctk.CTkOptionMenu(assign_frame, variable=category_var, values=categories)
-        category_combo.pack(anchor="w", pady=(5, 10))
+        ctk.CTkLabel(panel, text="Select Category:").pack(anchor="w", pady=(0, 5))
+        category_combo = ctk.CTkOptionMenu(panel, variable=category_var, values=categories)
+        category_combo.pack(fill="x", pady=(0, 15))
         
-        def assign_to_selected():
-            selected_files = [file for file, (var, _) in file_checkboxes.items() if var.get() == 1]
-            
-            if not selected_files:
-                messagebox.showwarning("Warning", "Please select files to assign.")
-                return
-            
-            category = category_var.get()
-            
-            for file in selected_files:
-                if category == "None":
-                    manual_assignments.pop(file, None)
-                else:
-                    manual_assignments[file] = category
-                
-                current_assignment = manual_assignments.get(file, "None")
-                file_checkboxes[file][1].configure(text=f"{file} → {current_assignment}")
-            
-            messagebox.showinfo("Success", f"Assigned {len(selected_files)} files to '{category}'")
+        # Assign button
+        assign_btn = ctk.CTkButton(panel, 
+                                text="✓ Assign to Selected", 
+                                command=lambda: self._assign_to_selected(file_checkboxes, manual_assignments, category_var, selected_counter),
+                                fg_color="#4CAF50",  # Green color for primary action
+                                hover_color="#388E3C")
+        assign_btn.pack(fill="x", pady=(0, 10))
         
-        ctk.CTkButton(assign_frame, text="✅ Assign to Selected Files", 
-                     command=assign_to_selected).pack(anchor="w", pady=(0, 5))
+        # Selection info
+        selection_info = ctk.StringVar(value="Selected: 0 files")
+        ctk.CTkLabel(panel, textvariable=selection_info, 
+                    font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 15))
         
-        # Selection info and controls
+        # Update selection info function
         def update_selection_info():
             selected_count = sum(var.get() for var, _ in file_checkboxes.values())
             selection_info.set(f"Selected: {selected_count} files")
-        
-        selection_info = ctk.StringVar(value="Selected: 0 files")
-        ctk.CTkLabel(assign_frame, textvariable=selection_info, 
-                    font=ctk.CTkFont(size=10, slant="italic")).pack(anchor="w")
+            selected_counter.configure(text=f"{selected_count} selected")
         
         for var, _ in file_checkboxes.values():
             var.trace_add("write", lambda *args: update_selection_info())
         
-        # Selection buttons
-        filter_frame = ctk.CTkFrame(assign_frame)
-        filter_frame.pack(fill="x", pady=(10, 0))
+        # Selection action buttons
+        btn_frame = ctk.CTkFrame(panel, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=(0, 10))
         
-        def select_unassigned():
-            for file, (var, _) in file_checkboxes.items():
-                var.set(1 if file not in manual_assignments else 0)
-            update_selection_info()
+        ctk.CTkButton(btn_frame, text="Select Unassigned", 
+                    command=lambda: self._select_unassigned(file_checkboxes, manual_assignments),
+                    width=120).pack(side="left", padx=(0, 5))
         
-        def select_all():
-            for var, _ in file_checkboxes.values():
-                var.set(1)
-            update_selection_info()
+        ctk.CTkButton(btn_frame, text="Clear", 
+                    command=lambda: self._clear_selection(file_checkboxes),
+                    width=80).pack(side="right")
         
-        def clear_selection():
-            for var, _ in file_checkboxes.values():
-                var.set(0)
-            update_selection_info()
+        # Folder management section
+        ctk.CTkLabel(right_frame, text="Folder Management", 
+                    font=ctk.CTkFont(size=12, weight="bold")).pack(pady=(10, 5))
         
-        ctk.CTkButton(filter_frame, text="📝 Select Unassigned", 
-                     command=select_unassigned).pack(side="left", padx=(0, 5))
-        ctk.CTkButton(filter_frame, text="🔍 Select All", 
-                     command=select_all).pack(side="left", padx=(0, 5))
-        ctk.CTkButton(filter_frame, text="❌ Clear Selection", 
-                     command=clear_selection).pack(side="left")
+        folder_btn_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
+        folder_btn_frame.pack(fill="x", pady=(0, 10))
+        
+        ctk.CTkButton(folder_btn_frame, text="➕ Add Folder", 
+                    command=lambda: self._add_folder(folder, category_combo, get_categories),
+                    width=120).pack(side="left", padx=(0, 5))
+        
+        ctk.CTkButton(folder_btn_frame, text="🗑️ Delete Folder", 
+                    command=lambda: self._delete_folder(window, folder, category_combo, get_categories),
+                    fg_color="#FF5555", 
+                    hover_color="#FF0000",
+                    width=80).pack(side="right")
         
         # Bottom buttons
         self._create_manual_assignment_buttons(parent, window, manual_assignments, save_callback)
-    
+
+    # Helper methods for cleaner code
+    def _assign_to_selected(self, file_checkboxes, manual_assignments, category_var, counter):
+        selected_files = [file for file, (var, label) in file_checkboxes.items() if var.get() == 1]
+        
+        if not selected_files:
+            messagebox.showwarning("Warning", "Please select files to assign.")
+            return
+        
+        category = category_var.get()
+        
+        for file in selected_files:
+            if category == "None":
+                manual_assignments.pop(file, None)
+            else:
+                manual_assignments[file] = category
+            
+            current_assignment = manual_assignments.get(file, "None")
+            file_checkboxes[file][1].configure(text=f"Category: {current_assignment}")
+        
+        counter.configure(text=f"{len(selected_files)} selected")
+        messagebox.showinfo("Success", f"Assigned {len(selected_files)} files to '{category}'")
+
+    def _select_unassigned(self, file_checkboxes, manual_assignments):
+        for file, (var, _) in file_checkboxes.items():
+            var.set(1 if file not in manual_assignments else 0)
+
+    def _clear_selection(self, file_checkboxes):
+        for var, _ in file_checkboxes.values():
+            var.set(0)
+
+    def _add_folder(self, base_folder, category_combo, get_categories_func):
+        dialog = ctk.CTkInputDialog(text="Enter new folder name:", title="Add Folder")
+        folder_name = dialog.get_input()
+        
+        if folder_name and folder_name.strip():
+            folder_name = folder_name.strip()
+            try:
+                folder_path = os.path.join(base_folder, folder_name)
+                if not os.path.exists(folder_path):
+                    os.makedirs(folder_path)
+                    messagebox.showinfo("Success", f"Folder '{folder_name}' created successfully!")
+                    # Update categories dropdown
+                    category_combo.configure(values=get_categories_func())
+                else:
+                    messagebox.showwarning("Warning", f"Folder '{folder_name}' already exists")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to create folder: {str(e)}")
+
+    def _delete_folder(self, parent_window, base_folder, category_combo, get_categories_func):
+        try:
+            folders = [f for f in os.listdir(base_folder) 
+                    if os.path.isdir(os.path.join(base_folder, f)) and not f.startswith('.')]
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not list folders: {str(e)}")
+            return
+        
+        if not folders:
+            messagebox.showwarning("Warning", "No folders available to delete")
+            return
+        
+        dialog = ctk.CTkToplevel(parent_window)
+        dialog.title("Delete Folder")
+        dialog.geometry("400x250")
+        dialog.transient(parent_window)
+        dialog.grab_set()
+        
+        content_frame = ctk.CTkFrame(dialog)
+        content_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        ctk.CTkLabel(content_frame, text="Select folder to delete:").pack(pady=(0, 10))
+        
+        folder_var = ctk.StringVar(value=folders[0])
+        folder_menu = ctk.CTkOptionMenu(content_frame, variable=folder_var, values=folders)
+        folder_menu.pack(fill="x", pady=(0, 10))
+        
+        force_var = ctk.BooleanVar(value=False)
+        force_cb = ctk.CTkCheckBox(content_frame, 
+                                text="Force delete (ignore errors)", 
+                                variable=force_var)
+        force_cb.pack(pady=(5, 15))
+        
+        def perform_delete():
+            folder_name = folder_var.get()
+            folder_path = os.path.join(base_folder, folder_name)
+            
+            try:
+                if not os.path.exists(folder_path):
+                    messagebox.showwarning("Warning", f"Folder '{folder_name}' doesn't exist")
+                    dialog.destroy()
+                    return
+                
+                try:
+                    if force_var.get():
+                        import stat
+                        def remove_readonly(func, path, _):
+                            os.chmod(path, stat.S_IWRITE)
+                            func(path)
+                        
+                        shutil.rmtree(folder_path, onerror=remove_readonly)
+                    else:
+                        shutil.rmtree(folder_path)
+                    
+                    if os.path.exists(folder_path):
+                        raise Exception("Folder still exists after deletion")
+                    
+                    messagebox.showinfo("Success", f"Folder '{folder_name}' deleted successfully!")
+                    category_combo.configure(values=get_categories_func())
+                    
+                except Exception as e:
+                    if not force_var.get():
+                        retry = messagebox.askyesno("Error", 
+                            f"Could not delete folder normally. Error: {str(e)}\n\nTry force delete?")
+                        if retry:
+                            force_var.set(True)
+                            return
+                    
+                    messagebox.showerror("Error", f"Could not completely delete '{folder_name}'\n\nError: {str(e)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Error during deletion: {str(e)}")
+            finally:
+                dialog.destroy()
+        
+        delete_btn = ctk.CTkButton(content_frame, 
+                                text="🗑️ DELETE FOLDER", 
+                                command=perform_delete,
+                                fg_color="#FF5555", 
+                                hover_color="#FF0000",
+                                font=ctk.CTkFont(weight="bold"))
+        delete_btn.pack()
+        
+        dialog.attributes('-topmost', True)
+        dialog.after(100, lambda: dialog.attributes('-topmost', False))
+
     def _create_manual_assignment_buttons(self, parent, window, manual_assignments, save_callback):
-        """Create bottom buttons for manual assignment window"""
+        """Create bottom buttons with improved visual hierarchy"""
         button_frame = ctk.CTkFrame(parent)
         button_frame.pack(fill="x", pady=(10, 0))
         
-        def save_and_close():
-            save_callback(manual_assignments)
-            window.destroy()
+        # Left-aligned destructive action
+        ctk.CTkButton(button_frame, text="🗑️ Clear All", 
+                    command=lambda: self._clear_all_assignments(manual_assignments, window),
+                    fg_color="#FF5555", 
+                    hover_color="#FF0000").pack(side="left", padx=(0, 10))
         
-        def clear_all():
-            if messagebox.askyesno("Confirm", "Clear all manual assignments?"):
-                manual_assignments.clear()
-                messagebox.showinfo("Cleared", "All manual assignments cleared!")
-                window.destroy()
+        # Right-aligned primary actions
+        ctk.CTkButton(button_frame, text="❌ Cancel", 
+                    command=window.destroy).pack(side="right", padx=(10, 0))
         
         ctk.CTkButton(button_frame, text="💾 Save & Close", 
-                     command=save_and_close).pack(side="right", padx=(10, 0))
-        
-        ctk.CTkButton(button_frame, text="❌ Cancel", 
-                     command=window.destroy).pack(side="right")
-        
-        ctk.CTkButton(button_frame, text="🗑️ Clear All", 
-                     command=clear_all).pack(side="left")
-    
+                    command=lambda: self._save_and_close(manual_assignments, save_callback, window),
+                    fg_color="#4CAF50",  # Green color for primary action
+                    hover_color="#388E3C").pack(side="right")
+
+    def _clear_all_assignments(self, manual_assignments, window):
+        if messagebox.askyesno("Confirm", "Clear all manual assignments?"):
+            manual_assignments.clear()
+            messagebox.showinfo("Cleared", "All manual assignments cleared!")
+            window.destroy()
+
+    def _save_and_close(self, manual_assignments, save_callback, window):
+        save_callback(manual_assignments)
+        window.destroy()
     # =============================================================================
     # Utility Methods
     # =============================================================================

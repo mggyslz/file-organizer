@@ -303,21 +303,22 @@ class FileOperations:
             except Exception as e:
                 if completion_callback and thread_safe_update:
                     thread_safe_update(0, lambda: completion_callback(None, e))
-    
+
         thread = threading.Thread(target=undo_worker, daemon=True)
         thread.start()
         return thread
     
     def undo_operations(self, operations: List[Tuple], 
-                       status_callback: Callable = None) -> Tuple[int, List[str]]:
+                    status_callback: Callable = None) -> Tuple[int, List[str]]:
         """
-        Undo file operations
+        Undo file operations and remove empty folders
         Returns: (undone_count, errors)
         """
         undone = 0
         errors = []
+        folders_to_check = set()  # Track folders that might become empty
         
-        # Reverse operations
+        # First pass: undo file operations
         for operation_type, source, destination in reversed(operations):
             if self._cancel_flag:
                 break
@@ -330,14 +331,39 @@ class FileOperations:
                     if os.path.exists(destination):
                         shutil.move(destination, source)
                         undone += 1
+                        # Track the folder that contained the moved file
+                        folders_to_check.add(os.path.dirname(destination))
                 elif operation_type == 'copy':
                     if os.path.exists(destination):
                         os.remove(destination)
                         undone += 1
+                        # Track the folder that contained the copied file
+                        folders_to_check.add(os.path.dirname(destination))
             except Exception as e:
                 errors.append(f"{os.path.basename(destination)}: {str(e)}")
         
-        return undone, errors
+        # Second pass: remove empty folders
+        removed_folders = []
+        for folder in folders_to_check:
+            try:
+                # Walk up the directory tree to check for empty folders
+                current_folder = folder
+                while current_folder and os.path.exists(current_folder):
+                    # Skip if folder is not empty
+                    if os.listdir(current_folder):
+                        break
+                    
+                    # Remove empty folder
+                    os.rmdir(current_folder)
+                    removed_folders.append(current_folder)
+                    
+                    # Move up to parent directory
+                    current_folder = os.path.dirname(current_folder)
+                    
+            except Exception as e:
+                errors.append(f"Error removing folder {folder}: {str(e)}")
+        
+        return undone, errors, removed_folders
     
     def check_folder_permissions(self, folder: str) -> bool:
         """Check if folder has write permissions"""
