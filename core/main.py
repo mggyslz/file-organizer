@@ -292,22 +292,49 @@ class FileOrganizer:
     # =============================================================================
     
     def find_duplicates(self):
-        """Find and manage duplicate files"""
-        folder = self.main_window.get_selected_folder()
-        if not folder or not os.path.isdir(folder):
-            messagebox.showwarning("Warning", "Please select a valid folder first.")
-            return
-
-        try:
-            duplicates = self.smart_features.find_duplicates(folder)
-            if not duplicates:
-                messagebox.showinfo("No Duplicates", "No duplicate files found!")
+            """Find and manage duplicate files with improved error handling"""
+            if self.operation_in_progress:
+                messagebox.showwarning("Warning", "Please wait for current operation to complete.")
                 return
-            
-            self.main_window.show_duplicates(duplicates, folder, self.security_perf)
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Error processing duplicates: {str(e)}")
+                
+            folder = self.main_window.get_selected_folder()
+            if not folder or not os.path.isdir(folder):
+                messagebox.showwarning("Warning", "Please select a valid folder first.")
+                return
+
+            try:
+                # Show progress
+                self.main_window.set_status("Scanning for duplicate files...")
+                
+                # Find duplicates
+                duplicates = self.smart_features.find_duplicates(folder)
+                
+                if not duplicates:
+                    self.main_window.set_status("No duplicate files found")
+                    messagebox.showinfo("No Duplicates", "No duplicate files found in the selected folder!")
+                    return
+                
+                # Calculate statistics
+                total_duplicates = sum(len(files) for files in duplicates.values())
+                total_groups = len(duplicates)
+                
+                self.main_window.set_status(f"Found {total_duplicates} duplicates in {total_groups} groups")
+                
+                # Show duplicates window
+                self.main_window.show_duplicates(duplicates, folder, self.security_perf)
+                
+            except PermissionError:
+                messagebox.showerror("Permission Error", 
+                    "Cannot access some files in the folder. Please check permissions.")
+                self.main_window.set_status("Permission error occurred")
+            except FileNotFoundError:
+                messagebox.showerror("Error", "The selected folder no longer exists.")
+                self.main_window.set_status("Folder not found")
+            except Exception as e:
+                error_msg = f"Error finding duplicates: {str(e)}"
+                messagebox.showerror("Error", error_msg)
+                self.main_window.set_status("Error occurred while finding duplicates")
+                print(f"Duplicate finding error: {e}")  # For debugging
     
     def open_file_types_editor(self):
         """Open file types editor"""

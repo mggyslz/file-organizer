@@ -480,80 +480,213 @@ File Size Distribution:
         ctk.CTkButton(button_frame, text="Close", command=preview_window.destroy).pack()
     
     def show_duplicates(self, duplicates: Dict, folder: str, security_perf=None):
-        """Show duplicates management window without tabs, pre-checking duplicates"""
-        dup_window = ctk.CTkToplevel(self.root)
-        dup_window.title("Duplicate Files")
-        dup_window.geometry("900x650")
-        self._bring_to_front(dup_window)
-        
-        main_frame = ctk.CTkFrame(dup_window)
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Title and instructions
-        ctk.CTkLabel(main_frame, text="Duplicate Files Found", 
-                    font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(0, 5))
-        
-        instructions = ("✓ Check files you want to delete (keep at least one per set)\n"
-                    "ⓘ Files grouped below are 100% identical in content")
-        ctk.CTkLabel(main_frame, text=instructions, font=ctk.CTkFont(size=11),
-                    text_color="gray70").pack(pady=(0, 15))
-        
-        # Create scrollable area for all duplicates
-        scroll_frame = ctk.CTkScrollableFrame(main_frame)
-        scroll_frame.pack(fill="both", expand=True, pady=(0, 10))
-        
-        file_checkboxes = {}
-        
-        # Create sections for each duplicate group
-        for group_idx, (hash_val, files) in enumerate(duplicates.items()):
-            # Group header
-            header_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-            header_frame.pack(fill="x", pady=(15, 5))
-            
-            ctk.CTkLabel(header_frame, 
-                        text=f"Duplicate Set {group_idx + 1} ({len(files)} files):",
-                        font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-            
-            # Create checkboxes for each file
-            for i, file in enumerate(files):
-                file_frame = ctk.CTkFrame(scroll_frame)
-                file_frame.pack(fill="x", pady=2)
+            """Show duplicates management window with improved error handling"""
+            if not duplicates:
+                messagebox.showinfo("No Duplicates", "No duplicate files found!")
+                return
                 
-                # Pre-check all except the first file in each group
-                cb_var = ctk.IntVar(value=1 if i > 0 else 0)
-                cb = ctk.CTkCheckBox(file_frame, text=os.path.basename(file), variable=cb_var)
-                cb.pack(side="left", padx=(0, 10))
+            dup_window = ctk.CTkToplevel(self.root)
+            dup_window.title("Duplicate Files")
+            dup_window.geometry("900x650")
+            self._bring_to_front(dup_window)
+            
+            main_frame = ctk.CTkFrame(dup_window)
+            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Title and instructions
+            ctk.CTkLabel(main_frame, text="Duplicate Files Found", 
+                        font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(0, 5))
+            
+            total_duplicates = sum(len(files) for files in duplicates.values())
+            total_groups = len(duplicates)
+            
+            instructions = (f"Found {total_duplicates} duplicate files in {total_groups} groups\n"
+                        "Check files you want to delete (keep at least one per set)\n"
+                        "Files grouped below are identical in content")
+            ctk.CTkLabel(main_frame, text=instructions, font=ctk.CTkFont(size=11),
+                        text_color="gray70").pack(pady=(0, 15))
+            
+            # Create scrollable area for all duplicates
+            scroll_frame = ctk.CTkScrollableFrame(main_frame)
+            scroll_frame.pack(fill="both", expand=True, pady=(0, 10))
+            
+            file_checkboxes = {}
+            
+            # Create sections for each duplicate group
+            for group_idx, (hash_val, files) in enumerate(duplicates.items()):
+                if not files or len(files) < 2:
+                    continue  # Skip invalid groups
+                    
+                # Group header
+                header_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+                header_frame.pack(fill="x", pady=(15, 5))
                 
-                # Show file info
-                self._add_file_info(file_frame, file)
-                file_checkboxes[file] = (cb_var, file_frame)
-        
-        # Action buttons
-        self._create_duplicate_action_buttons(main_frame, dup_window, duplicates, 
-                                            file_checkboxes, folder, security_perf)
+                # Calculate total size for this group
+                try:
+                    first_file_path = os.path.join(folder, files[0])
+                    if os.path.exists(first_file_path):
+                        file_size = os.path.getsize(first_file_path)
+                        size_text = self._format_size(file_size)
+                        wasted_space = file_size * (len(files) - 1)
+                        wasted_text = self._format_size(wasted_space)
+                        
+                        ctk.CTkLabel(header_frame, 
+                                    text=f"Duplicate Set {group_idx + 1} ({len(files)} files, {size_text} each, {wasted_text} wasted)",
+                                    font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+                    else:
+                        ctk.CTkLabel(header_frame, 
+                                    text=f"Duplicate Set {group_idx + 1} ({len(files)} files)",
+                                    font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+                except Exception:
+                    ctk.CTkLabel(header_frame, 
+                                text=f"Duplicate Set {group_idx + 1} ({len(files)} files)",
+                                font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+                
+                # Create checkboxes for each file
+                for i, filename in enumerate(files):
+                    file_path = os.path.join(folder, filename)
+                    
+                    # Check if file still exists
+                    if not os.path.exists(file_path):
+                        continue
+                        
+                    file_frame = ctk.CTkFrame(scroll_frame)
+                    file_frame.pack(fill="x", pady=2)
+                    
+                    # Pre-check all except the first file in each group
+                    cb_var = ctk.IntVar(value=1 if i > 0 else 0)
+                    cb = ctk.CTkCheckBox(file_frame, text=filename, variable=cb_var)
+                    cb.pack(side="left", padx=(10, 10))
+                    
+                    # Show file info
+                    self._add_file_info(file_frame, file_path)
+                    file_checkboxes[filename] = (cb_var, file_frame, file_path)
+            
+            # Action buttons
+            self._create_duplicate_action_buttons(main_frame, dup_window, duplicates, 
+                                                file_checkboxes, folder, security_perf)
         
     def _add_file_info(self, parent, file_path):
-        """Add file information labels"""
+        """Add file information labels with better error handling"""
         try:
+            if not os.path.exists(file_path):
+                error_frame = ctk.CTkFrame(parent, fg_color="transparent")
+                error_frame.pack(side="left")
+                ctk.CTkLabel(error_frame, text="(File not found)",
+                            text_color="red").pack()
+                return
+                
             stat = os.stat(file_path)
             size = self._format_size(stat.st_size)
             mod_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
             
+            # Size info
             size_frame = ctk.CTkFrame(parent, fg_color="transparent", width=80)
             size_frame.pack(side="left", padx=(0, 10))
-            ctk.CTkLabel(size_frame, text=size).pack()
+            ctk.CTkLabel(size_frame, text=size, font=ctk.CTkFont(size=10)).pack()
             
+            # Date info
             date_frame = ctk.CTkFrame(parent, fg_color="transparent", width=120)
             date_frame.pack(side="left", padx=(0, 10))
-            ctk.CTkLabel(date_frame, text=mod_time).pack()
+            ctk.CTkLabel(date_frame, text=mod_time, font=ctk.CTkFont(size=10)).pack()
             
-        except Exception:
+        except Exception as e:
             error_frame = ctk.CTkFrame(parent, fg_color="transparent")
             error_frame.pack(side="left")
-            ctk.CTkLabel(error_frame, text="(Error reading file info)",
-                        text_color="gray70").pack()
+            ctk.CTkLabel(error_frame, text=f"(Error: {str(e)[:20]}...)",
+                        text_color="gray70", font=ctk.CTkFont(size=10)).pack()
+
     
     def _create_duplicate_action_buttons(self, parent, window, duplicates, file_checkboxes, folder, security_perf):
+        """Create action buttons for duplicate management with better validation"""
+        button_frame = ctk.CTkFrame(parent)
+        button_frame.pack(fill="x", pady=(10, 0))
+        
+        def delete_selected_duplicates():
+            # Validate selections
+            groups_to_check = {}
+            for hash_val, files in duplicates.items():
+                groups_to_check[hash_val] = []
+                for filename in files:
+                    if filename in file_checkboxes:
+                        cb_var, _, file_path = file_checkboxes[filename]
+                        if cb_var.get() == 1:
+                            groups_to_check[hash_val].append(filename)
+            
+            # Check that at least one file is kept in each group
+            for group_idx, (hash_val, files) in enumerate(duplicates.items()):
+                selected_for_deletion = len(groups_to_check.get(hash_val, []))
+                total_in_group = len(files)
+                
+                if selected_for_deletion >= total_in_group:
+                    messagebox.showerror("Error", 
+                        f"You must keep at least one file in Duplicate Set {group_idx + 1}.\n"
+                        f"Currently all {total_in_group} files are selected for deletion.")
+                    return
+            
+            # Count total files to delete
+            total_to_delete = sum(len(selected) for selected in groups_to_check.values())
+            
+            if total_to_delete == 0:
+                messagebox.showwarning("Warning", "No files selected for deletion.")
+                return
+            
+            # Confirm deletion
+            if not messagebox.askyesno("Confirm Deletion", 
+                f"Permanently delete {total_to_delete} selected duplicate file(s)?"):
+                return
+            
+            # Perform deletion
+            deleted_count = 0
+            errors = []
+            
+            for filename, (cb_var, _, file_path) in file_checkboxes.items():
+                if cb_var.get() == 1:
+                    try:
+                        if not os.path.exists(file_path):
+                            errors.append(f"{filename}: File no longer exists")
+                            continue
+                            
+                        if security_perf:
+                            security_perf.secure_delete(file_path)
+                        else:
+                            os.remove(file_path)
+                        deleted_count += 1
+                    except Exception as e:
+                        errors.append(f"{filename}: {str(e)}")
+            
+            # Show results
+            result_msg = f"Successfully deleted {deleted_count} duplicate file(s)"
+            if errors:
+                result_msg += f"\n\nErrors encountered ({len(errors)}):"
+                # Show first 3 errors
+                for error in errors[:3]:
+                    result_msg += f"\n• {error}"
+                if len(errors) > 3:
+                    result_msg += f"\n...and {len(errors)-3} more errors"
+            
+            messagebox.showinfo("Deletion Results", result_msg)
+            window.destroy()
+            
+            # Update file count
+            try:
+                self.app.update_file_count(folder)
+            except Exception:
+                pass
+        
+        # Delete button
+        delete_btn = ctk.CTkButton(
+            button_frame,
+            text="Delete Selected",
+            command=delete_selected_duplicates,
+            fg_color="#FF5555",
+            hover_color="#FF0000",
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        delete_btn.pack(side="left", padx=(0, 10))
+        
+        # Close button
+        ctk.CTkButton(button_frame, text="Close", command=window.destroy).pack(side="right")
         """Create action buttons for duplicate management"""
         button_frame = ctk.CTkFrame(parent)
         button_frame.pack(fill="x", pady=(10, 0))
